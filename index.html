@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bài thi trắc nghiệm</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="tdtt.css">
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1 id="exam-title">🚀 BÀI THI TRẮC NGHIỆM</h1>
+        <p id="exam-org"></p>
+    </div>
+
+    <!-- Stats bar - hidden until exam starts -->
+    <div class="stats" id="stats-bar" style="display:none">
+        <span>✅ Đúng: <span id="correct-count">0</span></span>
+        <span>❌ Sai: <span id="wrong-count">0</span></span>
+        <span>📊 Tiến độ: <span id="progress">0</span>/<span id="total-q">0</span></span>
+    </div>
+
+    <!-- Result bar -->
+    <div class="result-bar" id="result-bar">
+        <h3>🎉 Hoàn thành bài thi!</h3>
+        <div class="score" id="final-score"></div>
+        <p id="final-detail" style="color:#666;margin-top:4px;font-size:0.9em"></p>
+        <button class="btn-retry" onclick="startExam()">🔄 Thi lại (đề mới)</button>
+    </div>
+
+    <!-- Start screen -->
+    <div id="start-screen" class="start-screen">
+        <div class="icon">📝</div>
+        <h2 id="start-title">Sẵn sàng bắt đầu?</h2>
+        <p>Mỗi lần bấm "Bắt đầu" sẽ nhận một bộ đề ngẫu nhiên mới</p>
+        <div class="info-grid">
+            <div class="info-box">
+                <div class="val" id="info-total">0</div>
+                <div class="lbl">Ngân hàng</div>
+            </div>
+            <div class="info-box">
+                <div class="val" id="info-exam">0</div>
+                <div class="lbl">Câu / bài thi</div>
+            </div>
+            <div class="info-box">
+                <div class="val" id="info-shuffle">✔</div>
+                <div class="lbl">Xáo đáp án</div>
+            </div>
+        </div>
+        <button class="btn-start" onclick="startExam()">🚀 Bắt đầu làm bài</button>
+    </div>
+
+    <!-- Error screen -->
+    <div id="error-screen" class="error-screen" style="display:none">
+        <div class="icon">⚠️</div>
+        <h2>Chưa có câu hỏi!</h2>
+        <p>Ngân hàng câu hỏi trống. Vui lòng import câu hỏi từ Admin Panel trước.</p>
+        <a href="admin.html">📋 Mở Admin Panel</a>
+    </div>
+
+    <!-- Quiz root -->
+    <div id="quiz-root"></div>
+
+    <div class="admin-link">
+        <a href="admin.html">⚙️ Admin Panel</a>
+    </div>
+</div>
+
+<script src="tdtt.js"></script>
+
+</body>
+</html>

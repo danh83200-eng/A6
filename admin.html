@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel — Quản lý Ngân hàng Câu hỏi</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+<!-- ===== TOP BAR ===== -->
+<div class="top-bar">
+    <div class="logo">
+        <div class="logo-icon">📋</div>
+        <span>Quiz Admin</span>
+    </div>
+    <div class="nav-links">
+        <a href="admin.html" class="active">⚙️ Admin</a>
+        <a href="tdtt.html" target="_blank">🎯 Trang Thi</a>
+    </div>
+</div>
+
+<!-- ===== LAYOUT ===== -->
+<div class="layout">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="sidebar-label">Quản lý</div>
+        <button class="sidebar-item active" onclick="switchPanel('dashboard')">
+            <span class="icon">📊</span> Tổng quan
+        </button>
+        <button class="sidebar-item" onclick="switchPanel('compose')">
+            <span class="icon">✏️</span> Soạn câu hỏi
+        </button>
+        <button class="sidebar-item" onclick="switchPanel('import')">
+            <span class="icon">📥</span> Import JSON
+        </button>
+        <button class="sidebar-item" onclick="switchPanel('bank')">
+            <span class="icon">🗃️</span> Ngân hàng
+            <span class="badge" id="sidebar-count">0</span>
+        </button>
+
+        <div class="sidebar-label">Cấu hình</div>
+        <button class="sidebar-item" onclick="switchPanel('config')">
+            <span class="icon">⚙️</span> Cài đặt bài thi
+        </button>
+        <button class="sidebar-item" onclick="switchPanel('export')">
+            <span class="icon">💾</span> Export / Backup
+        </button>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main">
+
+        <!-- ====== PANEL: DASHBOARD ====== -->
+        <div class="panel active" id="panel-dashboard">
+            <h2>📊 Tổng quan</h2>
+            <p class="subtitle">Trạng thái hệ thống ngân hàng câu hỏi</p>
+
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-icon blue">📚</div>
+                    <div><div class="stat-value" id="stat-total">0</div><div class="stat-label">Tổng câu hỏi</div></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green">💻</div>
+                    <div><div class="stat-value" id="stat-code">0</div><div class="stat-label">Có code</div></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon purple">🎯</div>
+                    <div><div class="stat-value" id="stat-exam">0</div><div class="stat-label">Câu/bài thi</div></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon orange">🏷️</div>
+                    <div><div class="stat-value" id="stat-tags">0</div><div class="stat-label">Tags</div></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">🏷️ Phân bố theo Tag</div>
+                <div id="tag-distribution" style="display:flex;flex-wrap:wrap;gap:8px;">
+                    <span class="empty-state" style="padding:20px;width:100%"><p>Chưa có câu hỏi nào</p></span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">⚡ Thao tác nhanh</div>
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="switchPanel('import')">📥 Import câu hỏi</button>
+                    <button class="btn btn-ghost" onclick="switchPanel('config')">⚙️ Cấu hình bài thi</button>
+                    <a href="tdtt.html" target="_blank" class="btn btn-success" style="text-decoration:none">🎯 Mở trang thi</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- ====== PANEL: COMPOSE ====== -->
+        <div class="panel" id="panel-compose">
+            <h2>✏️ Soạn câu hỏi</h2>
+            <p class="subtitle">Tạo câu hỏi nhanh bằng form hoặc soạn hàng loạt bằng text</p>
+
+            <div class="import-tabs">
+                <button class="import-tab active" onclick="switchComposeTab('form')">📝 Soạn từng câu</button>
+                <button class="import-tab" onclick="switchComposeTab('bulk')">📄 Soạn hàng loạt</button>
+            </div>
+
+            <!-- Form Mode -->
+            <div id="compose-form" class="card">
+                <div class="card-title">📝 Soạn câu hỏi mới</div>
+                <div class="form-group">
+                    <label>Nội dung câu hỏi *</label>
+                    <textarea id="cmp-question" rows="3" placeholder="Gõ câu hỏi ở đây..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Đoạn code (tùy chọn — bỏ trống nếu câu lý thuyết)</label>
+                    <textarea id="cmp-code" rows="4" placeholder="Ví dụ: <h1>Hello</h1>&#10;hoặc: print('hello')&#10;Bỏ trống nếu không có code"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Các đáp án * <span style="color:var(--text-muted);font-weight:400">(đánh dấu ✅ đáp án đúng)</span></label>
+                    <div id="cmp-options">
+                        <div class="compose-opt-row">
+                            <input type="radio" name="cmp-correct" value="0" checked>
+                            <input type="text" placeholder="Đáp án A" class="cmp-opt-input">
+                            <button class="btn btn-danger btn-sm" onclick="removeOption(this)" title="Xóa">✕</button>
+                        </div>
+                        <div class="compose-opt-row">
+                            <input type="radio" name="cmp-correct" value="1">
+                            <input type="text" placeholder="Đáp án B" class="cmp-opt-input">
+                            <button class="btn btn-danger btn-sm" onclick="removeOption(this)" title="Xóa">✕</button>
+                        </div>
+                        <div class="compose-opt-row">
+                            <input type="radio" name="cmp-correct" value="2">
+                            <input type="text" placeholder="Đáp án C" class="cmp-opt-input">
+                            <button class="btn btn-danger btn-sm" onclick="removeOption(this)" title="Xóa">✕</button>
+                        </div>
+                        <div class="compose-opt-row">
+                            <input type="radio" name="cmp-correct" value="3">
+                            <input type="text" placeholder="Đáp án D" class="cmp-opt-input">
+                            <button class="btn btn-danger btn-sm" onclick="removeOption(this)" title="Xóa">✕</button>
+                        </div>
+                    </div>
+                    <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addOption()">➕ Thêm đáp án</button>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Giải thích (tùy chọn)</label>
+                        <input type="text" id="cmp-explain" placeholder="Vì sao đáp án đúng là...">
+                    </div>
+                    <div class="form-group">
+                        <label>Tags (tùy chọn, cách nhau bằng dấu phẩy)</label>
+                        <input type="text" id="cmp-tags" placeholder="html, css, lý thuyết">
+                    </div>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="saveComposedQuestion()">💾 Lưu vào ngân hàng</button>
+                    <button class="btn btn-success" onclick="saveAndNewQuestion()">💾 Lưu & Soạn tiếp</button>
+                    <button class="btn btn-ghost" onclick="clearComposeForm()">🗑️ Xóa form</button>
+                </div>
+                <div id="cmp-saved-count" style="margin-top:12px;font-size:0.85em;color:var(--success);display:none"></div>
+            </div>
+
+            <!-- Bulk Text Mode -->
+            <div id="compose-bulk" class="card" style="display:none">
+                <div class="card-title">📄 Soạn hàng loạt bằng text</div>
+                <p style="font-size:0.85em;color:var(--text-dim);margin-bottom:12px;">Gõ câu hỏi theo định dạng đơn giản bên dưới. Dùng <code>dòng trống</code> để ngăn cách các câu.</p>
+                <textarea id="bulk-text" rows="18" placeholder="Câu hỏi thứ nhất?&#10;A. Đáp án A&#10;B. Đáp án B&#10;C. Đáp án C&#10;D. Đáp án D&#10;Đáp án: A&#10;Giải thích: Vì...&#10;Tags: html, css&#10;&#10;Câu hỏi thứ hai?&#10;Code:&#10;<h1>Hello</h1>&#10;<p>World</p>&#10;/Code&#10;A. Đáp án A&#10;B. Đáp án B&#10;Đáp án: B&#10;&#10;Câu True/False?&#10;A. Đúng&#10;B. Sai&#10;Đáp án: A"></textarea>
+                <div class="btn-group" style="margin-top:12px">
+                    <button class="btn btn-primary" onclick="parseBulkText()">📥 Chuyển thành câu hỏi</button>
+                    <button class="btn btn-ghost" onclick="document.getElementById('bulk-text').value=''">🗑️ Xóa text</button>
+                </div>
+                <div id="bulk-result" style="margin-top:16px;display:none"></div>
+            </div>
+
+            <!-- Hướng dẫn format text -->
+            <div class="card">
+                <div class="card-title">📖 Hướng dẫn soạn text nhanh</div>
+                <div class="detail-code">Câu hỏi ở đây?
+A. Đáp án A
+B. Đáp án B
+C. Đáp án C
+D. Đáp án D
+Đáp án: A
+Giải thích: Lý do đáp án đúng
+Tags: html, lý thuyết
+
+Câu có code?
+Code:
+&lt;h1&gt;Hello&lt;/h1&gt;
+&lt;p&gt;World&lt;/p&gt;
+/Code
+A. Tiêu đề và đoạn văn
+B. Chỉ tiêu đề
+Đáp án: A</div>
+                <div style="font-size:0.85em;color:var(--text-dim);line-height:1.8;">
+                    <strong>Dòng đầu:</strong> Nội dung câu hỏi<br>
+                    <strong>A. B. C. D.:</strong> Các đáp án (không giới hạn số lượng)<br>
+                    <strong>Code: ... /Code:</strong> Đoạn code (tùy chọn)<br>
+                    <strong>Đáp án:</strong> Chữ cái đáp án đúng (A, B, C, D...)<br>
+                    <strong>Giải thích:</strong> Giải thích (tùy chọn)<br>
+                    <strong>Tags:</strong> Phân loại (tùy chọn)<br>
+                    <strong>Dòng trống:</strong> Ngăn cách giữa các câu
+                </div>
+            </div>
+        </div>
+
+        <!-- ====== PANEL: IMPORT ====== -->
+        <div class="panel" id="panel-import">
+            <h2>📥 Import câu hỏi</h2>
+            <p class="subtitle">Thêm câu hỏi vào ngân hàng từ file JSON hoặc paste trực tiếp</p>
+
+            <div class="import-tabs">
+                <button class="import-tab active" onclick="switchImportTab('file')">📁 Upload File</button>
+                <button class="import-tab" onclick="switchImportTab('paste')">📋 Paste JSON</button>
+            </div>
+
+            <!-- Upload File -->
+            <div id="import-file" class="card">
+                <div class="card-title">📁 Upload file JSON</div>
+                <div class="upload-zone" id="upload-zone">
+                    <input type="file" accept=".json" id="file-input" onchange="handleFileUpload(event)">
+                    <div class="icon">📤</div>
+                    <p><strong>Kéo thả file JSON vào đây</strong></p>
+                    <p style="margin-top:6px;font-size:0.82em;">hoặc click để chọn file</p>
+                </div>
+            </div>
+
+            <!-- Paste JSON -->
+            <div id="import-paste" class="card" style="display:none">
+                <div class="card-title">📋 Paste JSON trực tiếp</div>
+                <div class="form-group">
+                    <label>Dán mảng JSON câu hỏi vào đây:</label>
+                    <textarea id="json-paste" rows="12" placeholder='[
+  {
+    "id": 1,
+    "q": "Nội dung câu hỏi?",
+    "code": "print(\"Hello\")",
+    "options": ["A", "B", "C", "D"],
+    "correct": 0,
+    "explain": "Giải thích...",
+    "tags": ["python"]
+  }
+]'></textarea>
+                </div>
+                <button class="btn btn-primary" onclick="importFromPaste()">📥 Import từ JSON</button>
+            </div>
+
+            <!-- Import Options -->
+            <div class="card">
+                <div class="card-title">⚙️ Tùy chọn Import</div>
+                <div class="toggle-row">
+                    <div>
+                        <div class="toggle-label">Ghi đè ngân hàng hiện tại</div>
+                        <div class="toggle-desc">Xóa toàn bộ câu hỏi cũ trước khi import</div>
+                    </div>
+                    <div class="toggle" id="toggle-overwrite" onclick="this.classList.toggle('on')"></div>
+                </div>
+                <div class="toggle-row">
+                    <div>
+                        <div class="toggle-label">Tự động gán ID</div>
+                        <div class="toggle-desc">Tự động đánh lại số thứ tự ID cho câu hỏi</div>
+                    </div>
+                    <div class="toggle on" id="toggle-autoid" onclick="this.classList.toggle('on')"></div>
+                </div>
+            </div>
+
+            <!-- Preview -->
+            <div class="card" id="import-preview" style="display:none">
+                <div class="card-title">👁️ Xem trước (<span id="preview-count">0</span> câu)</div>
+                <div style="max-height:300px;overflow-y:auto;">
+                    <table class="q-table" id="preview-table">
+                        <thead><tr><th>#</th><th>Câu hỏi</th><th>Đáp án</th><th>Code</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <div style="margin-top:16px" class="btn-group">
+                    <button class="btn btn-primary" onclick="confirmImport()">✅ Xác nhận Import</button>
+                    <button class="btn btn-ghost" onclick="cancelPreview()">❌ Hủy</button>
+                </div>
+            </div>
+
+            <!-- Format Guide -->
+            <div class="card">
+                <div class="card-title">📖 Hướng dẫn định dạng JSON</div>
+                <div class="detail-code">[
+  {
+    "id": 1,
+    "q": "Nội dung câu hỏi?",
+    "code": "(Tùy chọn) Đoạn code",
+    "type": "single",
+    "options": ["Đáp án A", "Đáp án B", "Đáp án C"],
+    "correct": 0,
+    "explain": "Giải thích đáp án",
+    "tags": ["tag1", "tag2"]
+  }
+]</div>
+                <div style="font-size:0.85em;color:var(--text-dim);line-height:1.8;">
+                    <strong>Bắt buộc:</strong> <code>q</code>, <code>options</code>, <code>correct</code><br>
+                    <strong>Tùy chọn:</strong> <code>id</code>, <code>code</code>, <code>type</code>, <code>explain</code>, <code>tags</code><br>
+                    <strong>correct:</strong> Index đáp án đúng (bắt đầu từ 0)<br>
+                    <strong>options:</strong> Mảng đáp án, không giới hạn số lượng
+                </div>
+            </div>
+        </div>
+
+        <!-- ====== PANEL: BANK ====== -->
+        <div class="panel" id="panel-bank">
+            <h2>🗃️ Ngân hàng câu hỏi</h2>
+            <p class="subtitle">Quản lý toàn bộ câu hỏi đã import</p>
+
+            <div class="search-bar">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="search-input" placeholder="Tìm kiếm câu hỏi, tag..." oninput="filterQuestions()">
+            </div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <span style="font-size:0.88em;color:var(--text-dim);">Hiển thị <strong id="filtered-count">0</strong> câu</span>
+                <div class="btn-group">
+                    <button class="btn btn-danger btn-sm" onclick="deleteAllQuestions()">🗑️ Xóa tất cả</button>
+                </div>
+            </div>
+
+            <div class="card" style="padding:0;overflow:hidden;">
+                <div style="max-height:500px;overflow-y:auto;">
+                    <table class="q-table" id="bank-table">
+                        <thead><tr><th style="width:50px">#</th><th>Câu hỏi</th><th>Đáp án</th><th>Tags</th><th style="width:100px">Thao tác</th></tr></thead>
+                        <tbody id="bank-tbody"></tbody>
+                    </table>
+                </div>
+                <div id="bank-empty" class="empty-state" style="display:none">
+                    <div class="icon">📭</div>
+                    <p>Chưa có câu hỏi nào trong ngân hàng</p>
+                    <button class="btn btn-primary btn-sm" style="margin-top:16px" onclick="switchPanel('import')">📥 Import ngay</button>
+                </div>
+            </div>
+
+            <div class="pagination" id="bank-pagination"></div>
+        </div>
+
+        <!-- ====== PANEL: CONFIG ====== -->
+        <div class="panel" id="panel-config">
+            <h2>⚙️ Cài đặt bài thi</h2>
+            <p class="subtitle">Cấu hình cách thức bài thi hiển thị cho thí sinh</p>
+
+            <div class="card">
+                <div class="card-title">📝 Thông tin bài thi</div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tiêu đề bài thi</label>
+                        <input type="text" id="cfg-title" placeholder="ÔN TẬP CUỐI KỲ: TƯ DUY TÍNH TOÁN" value="">
+                    </div>
+                    <div class="form-group">
+                        <label>Tên đơn vị / Khoa</label>
+                        <input type="text" id="cfg-org" placeholder="Khoa CNTT - UET" value="">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">🎲 Số câu hỏi mỗi bài thi</div>
+                <p style="font-size:0.85em;color:var(--text-dim);margin-bottom:16px;">
+                    Mỗi thí sinh sẽ nhận ngẫu nhiên số câu này từ ngân hàng. Tổng ngân hàng: <strong id="cfg-total">0</strong> câu
+                </p>
+                <div class="slider-wrap">
+                    <span style="font-size:0.85em;color:var(--text-dim);">1</span>
+                    <input type="range" id="cfg-count" min="1" max="100" value="30" oninput="updateSlider()">
+                    <span style="font-size:0.85em;color:var(--text-dim)" id="cfg-max-label">100</span>
+                    <div class="slider-value" id="cfg-count-display">30</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">🔧 Tùy chọn hiển thị</div>
+                <div class="toggle-row">
+                    <div>
+                        <div class="toggle-label">Xáo trộn đáp án</div>
+                        <div class="toggle-desc">Đảo ngẫu nhiên thứ tự các đáp án trong mỗi câu</div>
+                    </div>
+                    <div class="toggle on" id="cfg-shuffle" onclick="this.classList.toggle('on')"></div>
+                </div>
+                <div class="toggle-row">
+                    <div>
+                        <div class="toggle-label">Xáo trộn câu hỏi</div>
+                        <div class="toggle-desc">Đảo ngẫu nhiên thứ tự các câu hỏi</div>
+                    </div>
+                    <div class="toggle on" id="cfg-shuffleq" onclick="this.classList.toggle('on')"></div>
+                </div>
+                <div class="toggle-row">
+                    <div>
+                        <div class="toggle-label">Hiện giải thích sau khi trả lời</div>
+                        <div class="toggle-desc">Hiện phần giải thích ngay sau khi chọn đáp án</div>
+                    </div>
+                    <div class="toggle on" id="cfg-explain" onclick="this.classList.toggle('on')"></div>
+                </div>
+            </div>
+
+            <button class="btn btn-primary" onclick="saveConfig()" style="margin-top:8px">💾 Lưu cấu hình</button>
+        </div>
+
+        <!-- ====== PANEL: EXPORT ====== -->
+        <div class="panel" id="panel-export">
+            <h2>💾 Export / Backup</h2>
+            <p class="subtitle">Xuất ngân hàng câu hỏi và cấu hình ra file</p>
+
+            <div class="card">
+                <div class="card-title">📦 Export ngân hàng câu hỏi</div>
+                <p style="font-size:0.88em;color:var(--text-dim);margin-bottom:16px;">
+                    Xuất toàn bộ <strong id="export-count">0</strong> câu hỏi ra file JSON để backup hoặc chia sẻ.
+                </p>
+                <button class="btn btn-success" onclick="exportBank()">📥 Tải file JSON</button>
+            </div>
+
+            <div class="card">
+                <div class="card-title">⚙️ Export cấu hình bài thi</div>
+                <p style="font-size:0.88em;color:var(--text-dim);margin-bottom:16px;">
+                    Xuất cấu hình (tiêu đề, số câu, tùy chọn) ra file JSON.
+                </p>
+                <button class="btn btn-ghost" onclick="exportConfig()">📥 Tải cấu hình</button>
+            </div>
+
+            <div class="card">
+                <div class="card-title">📋 Xem JSON hiện tại</div>
+                <textarea id="export-json" rows="10" readonly style="cursor:default;"></textarea>
+                <button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="copyExportJSON()">📋 Copy JSON</button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ===== MODAL: Question Detail ===== -->
+<div class="modal-overlay" id="modal-detail">
+    <div class="modal">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <h3 id="modal-title">Chi tiết câu hỏi</h3>
+            <button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button>
+        </div>
+        <div id="modal-body"></div>
+    </div>
+</div>
+
+<!-- ===== TOAST CONTAINER ===== -->
+<div class="toast-container" id="toast-container"></div>
+
+<script src="admin.js"></script>
+
+</body>
+</html>
