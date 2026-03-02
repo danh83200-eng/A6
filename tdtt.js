@@ -223,10 +223,20 @@ function shuffleOptions(q) {
 }
 
 // ==========================================
-// LOCALSTORAGE
+// LOCALSTORAGE (Multi-bank)
 // ==========================================
+function getActiveBankId() {
+    return localStorage.getItem('quizActiveBank') || '';
+}
+
 function getBank() {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+    const id = getActiveBankId();
+    if (!id) {
+        // Fallback: try old format
+        try { return JSON.parse(localStorage.getItem('quizBank')) || []; }
+        catch { return []; }
+    }
+    try { return JSON.parse(localStorage.getItem('quizBank_' + id)) || []; }
     catch { return []; }
 }
 

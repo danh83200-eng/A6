@@ -26,6 +26,9 @@
 
     <!-- SIDEBAR -->
     <div class="sidebar">
+        <!-- Bank Selector -->
+        <div id="bank-selector" class="bank-selector"></div>
+
         <div class="sidebar-label">Quản lý</div>
         <button class="sidebar-item active" onclick="switchPanel('dashboard')">
             <span class="icon">📊</span> Tổng quan
@@ -424,6 +427,23 @@ B. Chỉ tiêu đề
             </div>
         </div>
 
+        <!-- ====== PANEL: BANKS MANAGER ====== -->
+        <div class="panel" id="panel-banks">
+            <h2>📂 Quản lý Ngân hàng</h2>
+            <p class="subtitle">Tạo, chuyển, đổi tên hoặc xóa các ngân hàng câu hỏi</p>
+
+            <div style="margin-bottom:20px">
+                <button class="btn btn-primary" onclick="promptCreateBank()">➕ Tạo ngân hàng mới</button>
+            </div>
+
+            <div class="card" style="padding:0;overflow:hidden;">
+                <table class="q-table">
+                    <thead><tr><th>Tên ngân hàng</th><th>Số câu</th><th>Ngày tạo</th><th>Thao tác</th></tr></thead>
+                    <tbody id="banks-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
     </div>
 </div>
 
@@ -445,5 +465,3 @@ B. Chỉ tiêu đề
 
 </body>
 </html>
-
-

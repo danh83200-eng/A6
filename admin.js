@@ -1,7 +1,8 @@
 // ==========================================
 // STATE
 // ==========================================
-const STORAGE_KEY = 'quizBank';
+const BANKS_LIST_KEY = 'quizBanks';       // danh sách banks
+const ACTIVE_BANK_KEY = 'quizActiveBank'; // id bank đang active
 const CONFIG_KEY = 'quizConfig';
 
 let pendingImport = null; // data đang chờ xác nhận import
@@ -12,22 +13,303 @@ const PAGE_SIZE = 20;
 // INIT
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
+    migrateOldData();
+    ensureDefaultBank();
+    renderBankSelector();
     loadStatsAndUI();
     loadConfigUI();
     setupDragDrop();
 });
 
 // ==========================================
-// LOCALSTORAGE HELPERS
+// MULTI-BANK: Data layer
 // ==========================================
-function getBank() {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+
+// Migrate old single-bank format to multi-bank
+function migrateOldData() {
+    const oldData = localStorage.getItem('quizBank');
+    const banksList = localStorage.getItem(BANKS_LIST_KEY);
+    if (oldData && !banksList) {
+        // Old format exists, migrate
+        const id = 'bank_' + Date.now();
+        const banks = [{ id: id, name: 'Ngân hàng mặc định', createdAt: new Date().toISOString() }];
+        localStorage.setItem(BANKS_LIST_KEY, JSON.stringify(banks));
+        localStorage.setItem('quizBank_' + id, oldData);
+        localStorage.setItem(ACTIVE_BANK_KEY, id);
+        localStorage.removeItem('quizBank'); // clean up old key
+    }
+}
+
+// Đảm bảo luôn có ít nhất 1 bank
+function ensureDefaultBank() {
+    const banks = getBanksList();
+    if (banks.length === 0) {
+        createNewBank('Ngân hàng mặc định');
+    }
+    // Đảm bảo có active bank
+    if (!getActiveBankId() || !banks.find(b => b.id === getActiveBankId())) {
+        const list = getBanksList();
+        if (list.length > 0) setActiveBankId(list[0].id);
+    }
+}
+
+// CRUD cho danh sách banks
+function getBanksList() {
+    try { return JSON.parse(localStorage.getItem(BANKS_LIST_KEY)) || []; }
     catch { return []; }
 }
-function setBank(data) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    loadStatsAndUI();
+function saveBanksList(list) {
+    localStorage.setItem(BANKS_LIST_KEY, JSON.stringify(list));
 }
+
+function getActiveBankId() {
+    return localStorage.getItem(ACTIVE_BANK_KEY) || '';
+}
+function setActiveBankId(id) {
+    localStorage.setItem(ACTIVE_BANK_KEY, id);
+}
+
+// Lấy storage key cho bank hiện tại
+function getStorageKey() {
+    return 'quizBank_' + getActiveBankId();
+}
+
+// Lấy/ghi dữ liệu câu hỏi của bank active
+function getBank() {
+    try { return JSON.parse(localStorage.getItem(getStorageKey())) || []; }
+    catch { return []; }
+}
+function setBank(data, autoSave = false) {
+    localStorage.setItem(getStorageKey(), JSON.stringify(data));
+    // Update count in banks list
+    const banks = getBanksList();
+    const idx = banks.findIndex(b => b.id === getActiveBankId());
+    if (idx >= 0) { banks[idx].count = data.length; saveBanksList(banks); }
+    loadStatsAndUI();
+    renderBankSelector();
+    // Auto-save JSON file
+    if (autoSave && data.length > 0) {
+        autoSaveFile(data);
+    }
+}
+
+// Auto-download JSON file cho bank hiện tại
+function autoSaveFile(data) {
+    const banks = getBanksList();
+    const active = banks.find(b => b.id === getActiveBankId());
+    const name = active ? active.name : 'ngan-hang';
+    const safeName = name.replace(/[^a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF]/g, '-').replace(/-+/g, '-').toLowerCase();
+    downloadJSON(data, `${safeName}.json`);
+}
+
+// Tạo bank mới
+function createNewBank(name) {
+    const id = 'bank_' + Date.now();
+    const banks = getBanksList();
+    banks.push({ id: id, name: name, createdAt: new Date().toISOString(), count: 0 });
+    saveBanksList(banks);
+    setActiveBankId(id);
+    localStorage.setItem('quizBank_' + id, '[]');
+    return id;
+}
+
+// Chuyển bank active
+function switchActiveBank(id) {
+    const banks = getBanksList();
+    if (!banks.find(b => b.id === id)) return;
+    setActiveBankId(id);
+    renderBankSelector();
+    loadStatsAndUI();
+    loadConfigUI();
+    // Refresh current panel
+    const activePanel = document.querySelector('.panel.active');
+    if (activePanel) {
+        const panelName = activePanel.id.replace('panel-', '');
+        if (panelName === 'bank') renderBankTable();
+        if (panelName === 'export') refreshExport();
+    }
+    toast(`📂 Đã chuyển sang: ${banks.find(b => b.id === id).name}`, 'info');
+}
+
+// Xóa bank
+function deleteBankById(id) {
+    let banks = getBanksList();
+    const target = banks.find(b => b.id === id);
+    if (!target) return;
+    if (banks.length <= 1) { toast('Cần giữ ít nhất 1 ngân hàng', 'error'); return; }
+    if (!confirm(`Xóa ngân hàng "${target.name}"? Tất cả câu hỏi sẽ bị mất.`)) return;
+    banks = banks.filter(b => b.id !== id);
+    saveBanksList(banks);
+    localStorage.removeItem('quizBank_' + id);
+    // Switch to another bank if this was active
+    if (getActiveBankId() === id) {
+        setActiveBankId(banks[0].id);
+    }
+    renderBankSelector();
+    loadStatsAndUI();
+    toast(`🗑️ Đã xóa ngân hàng "${target.name}"`, 'success');
+}
+
+// Đổi tên bank
+function renameBankById(id) {
+    const banks = getBanksList();
+    const target = banks.find(b => b.id === id);
+    if (!target) return;
+    showBankNameModal('Nhập tên mới:', target.name, (newName) => {
+        target.name = newName;
+        saveBanksList(banks);
+        renderBankSelector();
+        renderBanksManager();
+        toast(`✏️ Đã đổi tên thành "${target.name}"`, 'success');
+    });
+}
+
+// Render bank selector UI
+function renderBankSelector() {
+    const banks = getBanksList();
+    const activeId = getActiveBankId();
+    const container = document.getElementById('bank-selector');
+    if (!container) return;
+
+    const active = banks.find(b => b.id === activeId);
+    const activeName = active ? active.name : 'Chưa chọn';
+    const activeCount = active ? (active.count || 0) : 0;
+
+    container.innerHTML = `
+        <div class="bank-current" onclick="toggleBankDropdown()">
+            <span class="bank-current-icon">📂</span>
+            <div class="bank-current-info">
+                <div class="bank-current-name">${escapeHtml(activeName)}</div>
+                <div class="bank-current-count">${activeCount} câu hỏi</div>
+            </div>
+            <span class="bank-current-arrow">▾</span>
+        </div>
+        <div class="bank-dropdown" id="bank-dropdown">
+            ${banks.map(b => `
+                <div class="bank-dropdown-item ${b.id === activeId ? 'active' : ''}" onclick="switchActiveBank('${b.id}')">
+                    <span>${b.id === activeId ? '✅' : '📁'} ${escapeHtml(b.name)}</span>
+                    <span class="bank-item-count">${b.count || 0}</span>
+                </div>
+            `).join('')}
+            <div class="bank-dropdown-divider"></div>
+            <div class="bank-dropdown-item bank-action" onclick="promptCreateBank()">
+                <span>➕ Tạo ngân hàng mới</span>
+            </div>
+            <div class="bank-dropdown-item bank-action" onclick="switchPanel('banks')">
+                <span>⚙️ Quản lý ngân hàng</span>
+            </div>
+        </div>
+    `;
+}
+
+function toggleBankDropdown() {
+    const dd = document.getElementById('bank-dropdown');
+    dd.classList.toggle('show');
+    // Close on outside click
+    if (dd.classList.contains('show')) {
+        setTimeout(() => {
+            document.addEventListener('click', closeBankDropdownOutside);
+        }, 10);
+    }
+}
+function closeBankDropdownOutside(e) {
+    const sel = document.getElementById('bank-selector');
+    if (sel && !sel.contains(e.target)) {
+        document.getElementById('bank-dropdown').classList.remove('show');
+        document.removeEventListener('click', closeBankDropdownOutside);
+    }
+}
+
+function promptCreateBank() {
+    // Close dropdown if open
+    const dd = document.getElementById('bank-dropdown');
+    if (dd) dd.classList.remove('show');
+    showBankNameModal('Tên ngân hàng mới:', '', (name) => {
+        createNewBank(name);
+        renderBankSelector();
+        renderBanksManager();
+        loadStatsAndUI();
+        toast(`✅ Đã tạo ngân hàng "${name}"`, 'success');
+    });
+}
+
+// Modal nhập tên bank (thay thế prompt())
+function showBankNameModal(label, defaultValue, onConfirm) {
+    // Remove old modal if exists
+    const old = document.getElementById('bank-name-modal');
+    if (old) old.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'bank-name-modal';
+    modal.className = 'modal-overlay show';
+    modal.innerHTML = `
+        <div class="modal" style="max-width:420px">
+            <h3>📂 ${label}</h3>
+            <input type="text" id="bank-name-input" value="${escapeHtml(defaultValue)}" 
+                   placeholder="Ví dụ: HTML Cơ bản, CSS Nâng cao..." 
+                   style="margin-bottom:16px">
+            <div class="btn-group">
+                <button class="btn btn-primary" id="bank-name-ok">✅ Xác nhận</button>
+                <button class="btn btn-ghost" id="bank-name-cancel">Hủy</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    const input = document.getElementById('bank-name-input');
+    input.focus();
+    input.select();
+
+    function close() { modal.remove(); }
+
+    document.getElementById('bank-name-ok').onclick = () => {
+        const val = input.value.trim();
+        if (!val) { toast('Vui lòng nhập tên', 'error'); input.focus(); return; }
+        close();
+        onConfirm(val);
+    };
+    document.getElementById('bank-name-cancel').onclick = close;
+    modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') document.getElementById('bank-name-ok').click();
+        if (e.key === 'Escape') close();
+    });
+}
+
+// Render bank manager panel
+function renderBanksManager() {
+    const banks = getBanksList();
+    const activeId = getActiveBankId();
+    const tbody = document.getElementById('banks-tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = banks.map(b => `
+        <tr class="${b.id === activeId ? 'active-bank-row' : ''}">
+            <td>${b.id === activeId ? '✅' : '📁'} ${escapeHtml(b.name)}</td>
+            <td>${b.count || 0}</td>
+            <td>${b.createdAt ? new Date(b.createdAt).toLocaleDateString('vi-VN') : '—'}</td>
+            <td>
+                <div class="btn-group">
+                    ${b.id !== activeId ? `<button class="btn btn-primary btn-sm" onclick="switchActiveBank('${b.id}')">Chọn</button>` : '<span style="color:var(--success);font-size:0.85em">Đang dùng</span>'}
+                    <button class="btn btn-ghost btn-sm" onclick="renameBankById('${b.id}')" title="Đổi tên">✏️</button>
+                    <button class="btn btn-ghost btn-sm" onclick="exportSingleBank('${b.id}')" title="Tải JSON">💾</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteBankById('${b.id}')" title="Xóa">🗑️</button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function exportSingleBank(id) {
+    const data = JSON.parse(localStorage.getItem('quizBank_' + id) || '[]');
+    const banks = getBanksList();
+    const target = banks.find(b => b.id === id);
+    const name = target ? target.name : 'bank';
+    const safeName = name.replace(/[^a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF]/g, '-').replace(/-+/g, '-').toLowerCase();
+    downloadJSON(data, `${safeName}.json`);
+    toast(`📦 Đã tải "${name}"`, 'success');
+}
+
 function getConfig() {
     const defaults = {
         title: 'ÔN TẬP CUỐI KỲ: TƯ DUY TÍNH TOÁN',
@@ -50,14 +332,9 @@ function setConfig(cfg) {
 function switchPanel(name) {
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.sidebar-item').forEach(s => s.classList.remove('active'));
-    document.getElementById(`panel-${name}`).classList.add('active');
+    const panel = document.getElementById(`panel-${name}`);
+    if (panel) panel.classList.add('active');
 
-    const labels = { dashboard: '📊', import: '📥', bank: '🗃️', config: '⚙️', export: '💾' };
-    document.querySelectorAll('.sidebar-item').forEach(s => {
-        if (s.textContent.includes(Object.values(labels).find(l => s.querySelector('.icon')?.textContent === l) || '___')) {
-            // fallback match
-        }
-    });
     // Simpler active approach
     const items = document.querySelectorAll('.sidebar-item');
     const map = ['dashboard', 'compose', 'import', 'bank', 'config', 'export'];
@@ -65,6 +342,7 @@ function switchPanel(name) {
 
     // Refresh data for specific panels
     if (name === 'bank') renderBankTable();
+    if (name === 'banks') renderBanksManager();
     if (name === 'export') refreshExport();
     if (name === 'config') loadConfigUI();
     if (name === 'dashboard') loadStatsAndUI();
@@ -209,7 +487,7 @@ function confirmImport() {
     }
 
     bank = bank.concat(data);
-    setBank(bank);
+    setBank(bank, true);
 
     toast(`✅ Đã import ${data.length} câu hỏi thành công!`, 'success');
     pendingImport = null;
@@ -525,7 +803,7 @@ function saveComposedQuestion() {
     };
 
     bank.push(question);
-    setBank(bank);
+    setBank(bank, true);
     toast(`✅ Đã lưu câu hỏi #${newId}`, 'success');
     return true;
 }
@@ -706,7 +984,7 @@ function importBulkQuestions() {
     questions.forEach((q, i) => { q.id = startId + i; });
 
     const newBank = bank.concat(questions);
-    setBank(newBank);
+    setBank(newBank, true);
     toast(`✅ Đã import ${questions.length} câu hỏi!`, 'success');
 
     // Clear
